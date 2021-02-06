@@ -104,6 +104,11 @@ object Dependency {
         const val liveData = "androidx.lifecycle:lifecycle-livedata-ktx:${Version.lifecycle}"
     }
 
+    object MLKit {
+        const val bundledBarcodeScanning = "com.google.mlkit:barcode-scanning:${Version.bundledBarcodeScanning}"
+        const val unbundledBarcodeScanning = "com.google.android.gms:play-services-mlkit-barcode-scanning:${Version.unbundledBarcodeScanning}"
+    }
+
     object Mockito {
         const val core = "org.mockito:mockito-core:${Version.mockito}"
         const val android = "org.mockito:mockito-android:${Version.mockito}"

@@ -8,6 +8,7 @@ object Version {
     const val androidTestJunit = "1.1.2-rc01"
     const val benManesVersions = "0.36.0"
     const val biometric = "1.2.0-alpha01"
+    const val bundledBarcodeScanning = "16.1.1"
     const val cameraX = "1.0.0-rc02"
     const val cameraXExt = "1.0.0-alpha21"
     const val cardView = "1.0.0"
@@ -42,6 +43,7 @@ object Version {
     const val room = "2.3.0-beta01"
     const val timber = "4.7.1"
     const val transition = "1.4.0"
+    const val unbundledBarcodeScanning = "16.1.4"
     const val vectorDrawable = "1.2.0-alpha02"
     const val work = "2.4.0-rc01"
 }

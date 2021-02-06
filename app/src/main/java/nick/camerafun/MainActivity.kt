@@ -1,177 +1,57 @@
 package nick.camerafun
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.*
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.*
-import nick.camerafun.databinding.MainActivityBinding
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
+import androidx.navigation.createGraph
+import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.fragment.fragment
 
-class MainActivity : AppCompatActivity() {
-    lateinit var binding: MainActivityBinding
-    var imageCapture: ImageCapture? = null
-
-    val outputDirectory: File by lazy {
-        val mediaDirectory = externalMediaDirs.firstOrNull()?.let {
-            File(it, getString(R.string.app_name)).apply { mkdirs() }
-        }
-        if (mediaDirectory?.exists() == true) {
-            mediaDirectory
-        } else {
-            filesDir
-        }
-    }
+// todo: tap to focus: https://medium.com/androiddevelopers/whats-new-in-camerax-fb8568d6ddc
+//       pinch to zoom ^
+//       zoom slider ^
+// todo: scan barcodes (QR?): https://developers.google.com/ml-kit/vision/barcode-scanning/android
+class MainActivity : AppCompatActivity(R.layout.main_activity) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = MainActivityBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        createNavGraph()
+    }
 
-        if (allPermissionsGranted()) {
-            lifecycleScope.launch { startCamera() }
-        } else {
-            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
-        }
+    private fun createNavGraph() {
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.navHostContainer) as NavHostFragment
 
-        binding.cameraCaptureButton.setOnClickListener {
-            lifecycleScope.launch { takePhoto() }
-        }
-
-        binding.viewFinder.previewStreamState.observe(this) { state: PreviewView.StreamState? ->
-            Log.d(TAG, "StreamState == $state")
-            binding.progressBar.visibility = if (state == PreviewView.StreamState.IDLE) {
-                View.VISIBLE
-            } else {
-                View.GONE
+        navHostFragment.navController.apply {
+            graph = createGraph(
+                id = AppNavGraph.id,
+                startDestination = AppNavGraph.Destination.permission
+            ) {
+                fragment<CameraPermissionFragment>(AppNavGraph.Destination.permission) {
+                    action(AppNavGraph.Action.permissionGranted) {
+                        destinationId = AppNavGraph.Destination.camera
+                        navOptions {
+                            popUpTo(AppNavGraph.Destination.permission) {
+                                inclusive = true
+                            }
+                        }
+                    }
+                }
+                fragment<CameraFragment>(AppNavGraph.Destination.camera)
             }
         }
     }
+}
 
-    private suspend fun startCamera() {
-        val cameraProvider = getCameraProvider(this)
-        val preview = Preview.Builder()
-            .build()
-            .also { it.setSurfaceProvider(binding.viewFinder.surfaceProvider) }
+object AppNavGraph {
+    private var count = 1
+    val id = count++
 
-        imageCapture = ImageCapture.Builder().build()
-
-        val imageAnalyzer = ImageAnalysis.Builder()
-            .build()
-            .apply {
-                setAnalyzer(Dispatchers.Default.asExecutor(), LuminosityAnalyzer { luma ->
-                    Log.d(TAG, "Average luminosity: $luma")
-                })
-            }
-
-        try {
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                this,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                imageCapture,
-                imageAnalyzer
-            )
-        } catch (throwable: Throwable) {
-            Log.d(TAG, "Use case binding failed", throwable)
-        }
+    object Destination {
+        val permission = count++
+        val camera = count++
     }
 
-    private suspend fun takePhoto() {
-        val imageCapture = imageCapture ?: return
-
-        val date = SimpleDateFormat(FILENAME_FORMAT, Locale.CANADA)
-            .format(System.currentTimeMillis())
-        val photoFile = File(
-            outputDirectory,
-            "$date.jpg"
-        )
-
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-
-        try {
-            val results = imageCapture.takePicture(outputOptions)
-            val savedUri = Uri.fromFile(photoFile)
-            val msg = "Photo capture succeeded: $savedUri"
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-            Log.d(TAG, msg)
-        } catch (throwable: Throwable) {
-            Log.d(TAG, "Photo capture failed: ${throwable.message}", throwable)
-        }
-    }
-
-    private suspend fun ImageCapture.takePicture(
-        outputFileOptions: ImageCapture.OutputFileOptions
-    ): ImageCapture.OutputFileResults = suspendCoroutine { continuation ->
-        val callback = object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                continuation.resume(outputFileResults)
-            }
-
-            override fun onError(exception: ImageCaptureException) {
-                continuation.resumeWithException(exception)
-            }
-        }
-
-
-        takePicture(outputFileOptions, Dispatchers.Main.asExecutor(), callback)
-    }
-
-    private suspend fun getCameraProvider(context: Context): ProcessCameraProvider = suspendCancellableCoroutine { continuation ->
-        val future = ProcessCameraProvider.getInstance(context)
-        future.addListener({
-            continuation.resume(future.get())
-        }, Dispatchers.Main.asExecutor())
-
-        continuation.invokeOnCancellation {
-            future.cancel(false)
-        }
-    }
-
-    fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_CODE_PERMISSIONS) {
-            return
-        }
-
-        if (allPermissionsGranted()) {
-            lifecycleScope.launch { startCamera() }
-        } else {
-            Toast.makeText(this, "Permissions were not granted :(", Toast.LENGTH_LONG)
-                .show()
-            finish()
-        }
-    }
-
-    companion object {
-        private const val TAG = "CameraXBasic"
-        private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
-        private const val REQUEST_CODE_PERMISSIONS = 10
-        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
+    object Action {
+        val permissionGranted = count++
     }
 }
