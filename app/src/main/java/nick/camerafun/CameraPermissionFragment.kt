@@ -35,7 +35,7 @@ class CameraPermissionFragment : Fragment() {
     }
 
     private fun navigateToCamera() {
-        findNavController().navigate(AppNavGraph.Action.permissionGranted)
+        findNavController().navigate(Navigation.Action.permissionGranted)
     }
 
     private fun hasCameraPermission(): Boolean {
@@ -43,5 +43,14 @@ class CameraPermissionFragment : Fragment() {
             requireContext(),
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    object Navigation {
+        object Destination {
+            val id = IdGenerator.next()
+        }
+        object Action {
+            val permissionGranted = IdGenerator.next()
+        }
     }
 }

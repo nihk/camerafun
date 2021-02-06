@@ -37,7 +37,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
         }
 
         binding.cameraCaptureButton.setOnClickListener {
-            viewLifecycleOwner.lifecycleScope.launch { takePhoto() }
+            viewLifecycleOwner.lifecycleScope.launch { takePicture() }
         }
 
         binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
@@ -77,15 +77,21 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
         }
     }
 
-    private fun takePhoto() {
+    private fun takePicture() {
         val imageCapture = imageCapture ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            val results = viewModel.takePhoto(imageCapture)
+            val results = viewModel.takePicture(imageCapture)
             Log.d(TAG, "Saved pic to: ${results.savedUri}")
         }
     }
 
     companion object {
         private const val TAG = "asdf"
+    }
+
+    object Navigation {
+        object Destination {
+            val id = IdGenerator.next()
+        }
     }
 }

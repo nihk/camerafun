@@ -23,35 +23,25 @@ class MainActivity : AppCompatActivity(R.layout.main_activity) {
 
         navHostFragment.navController.apply {
             graph = createGraph(
-                id = AppNavGraph.id,
-                startDestination = AppNavGraph.Destination.permission
+                id = Navigation.id,
+                startDestination = CameraPermissionFragment.Navigation.Destination.id
             ) {
-                fragment<CameraPermissionFragment>(AppNavGraph.Destination.permission) {
-                    action(AppNavGraph.Action.permissionGranted) {
-                        destinationId = AppNavGraph.Destination.camera
+                fragment<CameraPermissionFragment>(CameraPermissionFragment.Navigation.Destination.id) {
+                    action(CameraPermissionFragment.Navigation.Action.permissionGranted) {
+                        destinationId = CameraFragment.Navigation.Destination.id
                         navOptions {
-                            popUpTo(AppNavGraph.Destination.permission) {
+                            popUpTo(CameraPermissionFragment.Navigation.Destination.id) {
                                 inclusive = true
                             }
                         }
                     }
                 }
-                fragment<CameraFragment>(AppNavGraph.Destination.camera)
+                fragment<CameraFragment>(CameraFragment.Navigation.Destination.id)
             }
         }
     }
-}
 
-object AppNavGraph {
-    private var count = 1
-    val id = count++
-
-    object Destination {
-        val permission = count++
-        val camera = count++
-    }
-
-    object Action {
-        val permissionGranted = count++
+    object Navigation {
+        val id = IdGenerator.next()
     }
 }

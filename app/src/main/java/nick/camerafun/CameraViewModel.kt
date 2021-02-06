@@ -54,7 +54,7 @@ class CameraViewModel(
         }
     }
 
-    suspend fun takePhoto(imageCapture: ImageCapture): ImageCapture.OutputFileResults {
+    suspend fun takePicture(imageCapture: ImageCapture): ImageCapture.OutputFileResults {
         val date = SimpleDateFormat(FILENAME_FORMAT, Locale.CANADA)
             .format(System.currentTimeMillis())
         val photoFile = File(
