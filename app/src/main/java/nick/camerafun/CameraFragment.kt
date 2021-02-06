@@ -3,11 +3,10 @@ package nick.camerafun
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.fragment.app.Fragment
@@ -24,6 +23,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     lateinit var binding: CameraFragmentBinding
     private lateinit var viewModel: CameraViewModel
     var imageCapture: ImageCapture? = null
+    var camera: Camera? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -48,6 +48,8 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 View.GONE
             }
         }
+
+        enableTouchGestures()
     }
 
     private fun bindToCamera(cameraProvider: ProcessCameraProvider) {
@@ -65,7 +67,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
 
         try {
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
+            camera = cameraProvider.bindToLifecycle(
                 this,
                 CameraSelector.DEFAULT_BACK_CAMERA,
                 preview,
@@ -75,6 +77,45 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
         } catch (throwable: Throwable) {
             Log.d(TAG, "Use case binding failed", throwable)
         }
+    }
+
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun enableTouchGestures() {
+        val pinchToZoom = getPinchToZoomDetector()
+
+        binding.viewFinder.setOnTouchListener { view, event ->
+            if (event.pointerCount > 1) {
+                pinchToZoom.onTouchEvent(event)
+            } else {
+                tapToFocus(event)
+            }
+        }
+    }
+
+    private fun tapToFocus(event: MotionEvent): Boolean {
+        return when (event.action) {
+            MotionEvent.ACTION_DOWN -> true
+            MotionEvent.ACTION_UP -> {
+                val point = binding.viewFinder.meteringPointFactory.createPoint(event.x, event.y)
+                val action = FocusMeteringAction.Builder(point).build()
+                camera?.cameraControl?.startFocusAndMetering(action)
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun getPinchToZoomDetector(): ScaleGestureDetector {
+        val listener = object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val currentZoomRatio = camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 0f
+                val delta = detector.scaleFactor
+                camera?.cameraControl?.setZoomRatio(currentZoomRatio * delta)
+                return true
+            }
+        }
+        return ScaleGestureDetector(requireContext(), listener)
     }
 
     private fun takePicture() {
