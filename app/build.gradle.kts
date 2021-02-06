@@ -18,6 +18,8 @@ androidAppConfig {
             }
         }
     }
+
+    ndkVersion = "21.4.7075529"
 }
 
 dependencies {
@@ -46,7 +48,7 @@ dependencies {
     implementation(Dependency.Camera.lifecycle)
     implementation(Dependency.Camera.view)
     implementation(Dependency.Camera.extensions)
-
+    implementation(Dependency.MLKit.bundledBarcodeScanning)
 
     kapt(Dependency.Room.compiler)
     kapt(Dependency.Dagger.compiler)

@@ -6,9 +6,6 @@ import androidx.navigation.createGraph
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.fragment
 
-// todo:
-//       zoom slider ^
-// todo: scan barcodes (QR?): https://developers.google.com/ml-kit/vision/barcode-scanning/android
 class MainActivity : AppCompatActivity(R.layout.main_activity) {
 
     override fun onCreate(savedInstanceState: Bundle?) {

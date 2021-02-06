@@ -10,15 +10,16 @@ class LuminosityAnalyzer(
     private val listener: LumaListener
 ) : ImageAnalysis.Analyzer {
 
-    override fun analyze(image: ImageProxy) {
-        val buffer = image.planes[0].buffer
-        val data = buffer.toByteArray()
-        val pixels = data.map { it.toInt() and 0xFF }
-        val luma = pixels.average()
+    override fun analyze(imageProxy: ImageProxy) {
+        val luma = imageProxy.planes[0]
+            .buffer
+            .toByteArray()
+            .map { it.toInt() and 0xFF }
+            .average()
 
         listener(luma)
 
-        image.close()
+        imageProxy.close()
     }
 
     private fun ByteBuffer.toByteArray(): ByteArray {

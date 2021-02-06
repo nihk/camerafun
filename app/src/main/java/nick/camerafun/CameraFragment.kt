@@ -13,6 +13,7 @@ import androidx.camera.view.PreviewView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.mlkit.vision.barcode.Barcode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
@@ -33,13 +34,13 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
 
         val factory = CameraViewModel.Factory(requireContext().applicationContext)
         viewModel = ViewModelProvider(this, factory).get(CameraViewModel::class.java)
-        viewModel.cameraProvider().observe(viewLifecycleOwner) {
-            bindToCamera(it)
-            binding.cameraCaptureButton.isEnabled = true
-        }
-
-        binding.cameraCaptureButton.setOnClickListener {
-            viewLifecycleOwner.lifecycleScope.launch { takePicture() }
+        viewModel.cameraProvider().observe(viewLifecycleOwner) { cameraProvider ->
+            bindToCamera(cameraProvider)
+            enableGestures()
+            enableZoomSlider()
+            binding.cameraCaptureButton.setOnClickListener {
+                takePicture()
+            }
         }
 
         binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
@@ -50,9 +51,6 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 View.GONE
             }
         }
-
-        enableGestures()
-        enableZoomSlider()
     }
 
     private fun bindToCamera(cameraProvider: ProcessCameraProvider) {
@@ -62,26 +60,41 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
 
         imageCapture = ImageCapture.Builder().build()
 
-        val imageAnalyzer = ImageAnalysis.Builder().build().apply {
-            setAnalyzer(Dispatchers.Default.asExecutor(), LuminosityAnalyzer { luma ->
-                Log.d(TAG, "Average luminosity: $luma")
+        val qrCodeAnalysis = ImageAnalysis.Builder().build().apply {
+            setAnalyzer(Dispatchers.Default.asExecutor(), QrCodeAnalyzer { deferred ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    handleBarcodes(deferred.await())
+                }
             })
         }
 
         try {
             cameraProvider.unbindAll()
+            // N.B. the max allowed UseCases that can be passed into this method is 3
             camera = cameraProvider.bindToLifecycle(
                 this,
                 CameraSelector.DEFAULT_BACK_CAMERA,
                 preview,
                 imageCapture,
-                imageAnalyzer
+                qrCodeAnalysis
             )
         } catch (throwable: Throwable) {
             Log.d(TAG, "Use case binding failed", throwable)
         }
     }
 
+    private fun handleBarcodes(barcodes: List<Barcode>) {
+        if (barcodes.isNotEmpty()) {
+            binding.qrCard.visibility = View.VISIBLE
+        }
+
+        barcodes.forEach { barcode ->
+            binding.qrCodeText.text = when (barcode.valueType) {
+                Barcode.TYPE_URL -> barcode.url?.url
+                else -> barcode.rawValue
+            }
+        }
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun enableGestures() {
@@ -116,6 +129,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 val delta = detector.scaleFactor
                 val zoomRatio = currentZoomRatio * delta
                 camera?.cameraControl?.setZoomRatio(zoomRatio)
+                // Match seekbar progress with pinch-to-zoom progress.
                 camera?.cameraInfo?.zoomState?.value?.linearZoom?.let { linearZoom ->
                     binding.zoomSlider.progress = (linearZoom * 100).roundToInt()
                 }
