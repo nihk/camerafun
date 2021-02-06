@@ -6,10 +6,12 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -50,6 +52,15 @@ class MainActivity : AppCompatActivity() {
 
         binding.cameraCaptureButton.setOnClickListener {
             lifecycleScope.launch { takePhoto() }
+        }
+
+        binding.viewFinder.previewStreamState.observe(this) { state: PreviewView.StreamState? ->
+            Log.d(TAG, "StreamState == $state")
+            binding.progressBar.visibility = if (state == PreviewView.StreamState.IDLE) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
         }
     }
 
