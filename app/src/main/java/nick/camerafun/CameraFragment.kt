@@ -61,10 +61,8 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
         imageCapture = ImageCapture.Builder().build()
 
         val qrCodeAnalysis = ImageAnalysis.Builder().build().apply {
-            setAnalyzer(Dispatchers.Default.asExecutor(), QrCodeAnalyzer { deferred ->
-                viewLifecycleOwner.lifecycleScope.launch {
-                    handleBarcodes(deferred.await())
-                }
+            setAnalyzer(Dispatchers.Default.asExecutor(), QrCodeAnalyzer { barcodes ->
+                handleBarcodes(barcodes)
             })
         }
 

@@ -7,11 +7,9 @@ import com.google.mlkit.vision.barcode.Barcode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Deferred
 
-class QrCodeAnalyzer(private val block: (Deferred<List<Barcode>>) -> Unit) : ImageAnalysis.Analyzer {
-    private val scanner = BarcodeScanning.getClient(
+class QrCodeAnalyzer(private val onBarcodesReceived: (List<Barcode>) -> Unit) : ImageAnalysis.Analyzer {
+    private val barcodeScanner = BarcodeScanning.getClient(
         BarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
             .build()
@@ -21,23 +19,10 @@ class QrCodeAnalyzer(private val block: (Deferred<List<Barcode>>) -> Unit) : Ima
     override fun analyze(imageProxy: ImageProxy) {
         val image = imageProxy.image ?: return
         val inputImage = InputImage.fromMediaImage(image, imageProxy.imageInfo.rotationDegrees)
-        val task = scanner.process(inputImage)
-        val deferred = CompletableDeferred<List<Barcode>>()
 
-        task.addOnCompleteListener {
+        barcodeScanner.process(inputImage).addOnSuccessListener { barcodes: List<Barcode> ->
             imageProxy.close()
-
-            if (task.exception == null) {
-                if (task.isCanceled) {
-                    deferred.cancel()
-                } else {
-                    deferred.complete(task.result)
-                }
-            } else {
-                deferred.completeExceptionally(task.exception!!)
-            }
+            onBarcodesReceived(barcodes)
         }
-
-        block(deferred)
     }
 }
