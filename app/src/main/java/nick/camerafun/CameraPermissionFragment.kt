@@ -38,7 +38,7 @@ class CameraPermissionFragment : Fragment() {
         findNavController().navigate(AppNavGraph.Action.permissionGranted)
     }
 
-    fun hasCameraPermission(): Boolean {
+    private fun hasCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             requireContext(),
             Manifest.permission.CAMERA

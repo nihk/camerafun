@@ -1,5 +1,6 @@
 package nick.camerafun
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -17,6 +18,7 @@ import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
 import nick.camerafun.databinding.CameraFragmentBinding
 
+@SuppressLint("LogNotTimber")
 class CameraFragment : Fragment(R.layout.camera_fragment) {
 
     lateinit var binding: CameraFragmentBinding
@@ -29,10 +31,13 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
 
         val factory = CameraViewModel.Factory(requireContext().applicationContext)
         viewModel = ViewModelProvider(this, factory).get(CameraViewModel::class.java)
-        viewModel.cameraProvider().observe(viewLifecycleOwner, ::bindToCamera)
+        viewModel.cameraProvider().observe(viewLifecycleOwner) {
+            bindToCamera(it)
+            binding.cameraCaptureButton.isEnabled = true
+        }
 
         binding.cameraCaptureButton.setOnClickListener {
-            lifecycleScope.launch { takePhoto() }
+            viewLifecycleOwner.lifecycleScope.launch { takePhoto() }
         }
 
         binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
