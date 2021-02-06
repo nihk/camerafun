@@ -8,10 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -22,6 +19,8 @@ import nick.camerafun.databinding.MainActivityBinding
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -40,6 +39,9 @@ class MainActivity : AppCompatActivity() {
             filesDir
         }
     }
+
+    // todo: how to not use an Executor?
+    val cameraExecutor: ExecutorService by lazy { Executors.newSingleThreadExecutor() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,9 +67,23 @@ class MainActivity : AppCompatActivity() {
 
         imageCapture = ImageCapture.Builder().build()
 
+        val imageAnalyzer = ImageAnalysis.Builder()
+            .build()
+            .apply {
+                setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
+                    Log.d(TAG, "Average luminosity: $luma")
+                })
+            }
+
         try {
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+            cameraProvider.bindToLifecycle(
+                this,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                imageCapture,
+                imageAnalyzer
+            )
         } catch (throwable: Throwable) {
             Log.d(TAG, "Use case binding failed", throwable)
         }
@@ -86,7 +102,7 @@ class MainActivity : AppCompatActivity() {
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
         try {
-            imageCapture.takePicture(this, outputOptions)
+            val results = imageCapture.takePicture(this, outputOptions)
             val savedUri = Uri.fromFile(photoFile)
             val msg = "Photo capture succeeded: $savedUri"
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
