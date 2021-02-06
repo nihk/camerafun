@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import android.widget.SeekBar
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -49,7 +50,8 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             }
         }
 
-        enableTouchGestures()
+        enableGestures()
+        enableZoomSlider()
     }
 
     private fun bindToCamera(cameraProvider: ProcessCameraProvider) {
@@ -81,7 +83,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
 
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun enableTouchGestures() {
+    private fun enableGestures() {
         val pinchToZoom = getPinchToZoomDetector()
 
         binding.viewFinder.setOnTouchListener { view, event ->
@@ -112,10 +114,21 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 val currentZoomRatio = camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 0f
                 val delta = detector.scaleFactor
                 camera?.cameraControl?.setZoomRatio(currentZoomRatio * delta)
+                // todo: set zoom slider as side effect
                 return true
             }
         }
         return ScaleGestureDetector(requireContext(), listener)
+    }
+
+    private fun enableZoomSlider() {
+        binding.zoomSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                camera?.cameraControl?.setLinearZoom(progress / 100f)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
     }
 
     private fun takePicture() {

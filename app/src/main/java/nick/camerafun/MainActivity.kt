@@ -6,8 +6,7 @@ import androidx.navigation.createGraph
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.fragment
 
-// todo: tap to focus: https://medium.com/androiddevelopers/whats-new-in-camerax-fb8568d6ddc
-//       pinch to zoom ^
+// todo:
 //       zoom slider ^
 // todo: scan barcodes (QR?): https://developers.google.com/ml-kit/vision/barcode-scanning/android
 class MainActivity : AppCompatActivity(R.layout.main_activity) {
