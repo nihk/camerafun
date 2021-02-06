@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
 import nick.camerafun.databinding.CameraFragmentBinding
+import kotlin.math.roundToInt
 
 @SuppressLint("LogNotTimber")
 class CameraFragment : Fragment(R.layout.camera_fragment) {
@@ -113,8 +114,11 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
                 val currentZoomRatio = camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 0f
                 val delta = detector.scaleFactor
-                camera?.cameraControl?.setZoomRatio(currentZoomRatio * delta)
-                // todo: set zoom slider as side effect
+                val zoomRatio = currentZoomRatio * delta
+                camera?.cameraControl?.setZoomRatio(zoomRatio)
+                camera?.cameraInfo?.zoomState?.value?.linearZoom?.let { linearZoom ->
+                    binding.zoomSlider.progress = (linearZoom * 100).roundToInt()
+                }
                 return true
             }
         }
@@ -124,6 +128,9 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     private fun enableZoomSlider() {
         binding.zoomSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) {
+                    return
+                }
                 camera?.cameraControl?.setLinearZoom(progress / 100f)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
