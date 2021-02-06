@@ -13,14 +13,11 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.*
 import nick.camerafun.databinding.MainActivityBinding
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -39,9 +36,6 @@ class MainActivity : AppCompatActivity() {
             filesDir
         }
     }
-
-    // todo: how to not use an Executor?
-    val cameraExecutor: ExecutorService by lazy { Executors.newSingleThreadExecutor() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         val imageAnalyzer = ImageAnalysis.Builder()
             .build()
             .apply {
-                setAnalyzer(cameraExecutor, LuminosityAnalyzer { luma ->
+                setAnalyzer(Dispatchers.Default.asExecutor(), LuminosityAnalyzer { luma ->
                     Log.d(TAG, "Average luminosity: $luma")
                 })
             }
@@ -102,7 +96,7 @@ class MainActivity : AppCompatActivity() {
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
         try {
-            val results = imageCapture.takePicture(this, outputOptions)
+            val results = imageCapture.takePicture(outputOptions)
             val savedUri = Uri.fromFile(photoFile)
             val msg = "Photo capture succeeded: $savedUri"
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
@@ -113,7 +107,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun ImageCapture.takePicture(
-        context: Context,
         outputFileOptions: ImageCapture.OutputFileOptions
     ): ImageCapture.OutputFileResults = suspendCoroutine { continuation ->
         val callback = object : ImageCapture.OnImageSavedCallback {
@@ -126,14 +119,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        takePicture(outputFileOptions, ContextCompat.getMainExecutor(context), callback)
+
+        takePicture(outputFileOptions, Dispatchers.Main.asExecutor(), callback)
     }
 
     private suspend fun getCameraProvider(context: Context): ProcessCameraProvider = suspendCancellableCoroutine { continuation ->
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             continuation.resume(future.get())
-        }, ContextCompat.getMainExecutor(context))
+        }, Dispatchers.Main.asExecutor())
 
         continuation.invokeOnCancellation {
             future.cancel(false)
