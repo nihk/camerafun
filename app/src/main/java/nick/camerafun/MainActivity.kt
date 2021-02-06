@@ -3,26 +3,43 @@ package nick.camerafun
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import nick.camerafun.databinding.MainActivityBinding
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 class MainActivity : AppCompatActivity() {
     lateinit var binding: MainActivityBinding
+    var imageCapture: ImageCapture? = null
+
+    val outputDirectory: File by lazy {
+        val mediaDirectory = externalMediaDirs.firstOrNull()?.let {
+            File(it, getString(R.string.app_name)).apply { mkdirs() }
+        }
+        if (mediaDirectory?.exists() == true) {
+            mediaDirectory
+        } else {
+            filesDir
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,11 +52,9 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
 
-        binding.cameraCaptureButton.setOnClickListener { takePhoto() }
-    }
-
-    private fun takePhoto() {
-
+        binding.cameraCaptureButton.setOnClickListener {
+            lifecycleScope.launch { takePhoto() }
+        }
     }
 
     private suspend fun startCamera() {
@@ -48,14 +63,54 @@ class MainActivity : AppCompatActivity() {
             .build()
             .also { it.setSurfaceProvider(binding.viewFinder.surfaceProvider) }
 
-        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+        imageCapture = ImageCapture.Builder().build()
 
         try {
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(this, cameraSelector, preview)
+            cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
         } catch (throwable: Throwable) {
             Log.d(TAG, "Use case binding failed", throwable)
         }
+    }
+
+    private suspend fun takePhoto() {
+        val imageCapture = imageCapture ?: return
+
+        val date = SimpleDateFormat(FILENAME_FORMAT, Locale.CANADA)
+            .format(System.currentTimeMillis())
+        val photoFile = File(
+            outputDirectory,
+            "$date.jpg"
+        )
+
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        try {
+            imageCapture.takePicture(this, outputOptions)
+            val savedUri = Uri.fromFile(photoFile)
+            val msg = "Photo capture succeeded: $savedUri"
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+            Log.d(TAG, msg)
+        } catch (throwable: Throwable) {
+            Log.d(TAG, "Photo capture failed: ${throwable.message}", throwable)
+        }
+    }
+
+    private suspend fun ImageCapture.takePicture(
+        context: Context,
+        outputFileOptions: ImageCapture.OutputFileOptions
+    ): ImageCapture.OutputFileResults = suspendCoroutine { continuation ->
+        val callback = object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                continuation.resume(outputFileResults)
+            }
+
+            override fun onError(exception: ImageCaptureException) {
+                continuation.resumeWithException(exception)
+            }
+        }
+
+        takePicture(outputFileOptions, ContextCompat.getMainExecutor(context), callback)
     }
 
     private suspend fun getCameraProvider(context: Context): ProcessCameraProvider = suspendCancellableCoroutine { continuation ->
@@ -65,7 +120,7 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(context))
 
         continuation.invokeOnCancellation {
-            future.cancel(true)
+            future.cancel(false)
         }
     }
 
@@ -89,17 +144,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Permissions were not granted :(", Toast.LENGTH_LONG)
                 .show()
             finish()
-        }
-    }
-
-    fun getOutputFileDirectory(): File {
-        val mediaDirectory = externalMediaDirs.firstOrNull()?.let {
-            File(it, getString(R.string.app_name)).apply { mkdirs() }
-        }
-        return if (mediaDirectory?.exists() == true) {
-            mediaDirectory
-        } else {
-            filesDir
         }
     }
 
