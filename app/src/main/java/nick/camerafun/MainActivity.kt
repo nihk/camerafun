@@ -20,13 +20,13 @@ class MainActivity : AppCompatActivity(R.layout.main_activity) {
         navHostFragment.navController.apply {
             graph = createGraph(
                 id = Navigation.id,
-                startDestination = CameraPermissionFragment.Navigation.Destination.id
+                startDestination = PermissionsFragment.Navigation.Destination.id
             ) {
-                fragment<CameraPermissionFragment>(CameraPermissionFragment.Navigation.Destination.id) {
-                    action(CameraPermissionFragment.Navigation.Action.permissionGranted) {
+                fragment<PermissionsFragment>(PermissionsFragment.Navigation.Destination.id) {
+                    action(PermissionsFragment.Navigation.Action.granted) {
                         destinationId = CameraFragment.Navigation.Destination.id
                         navOptions {
-                            popUpTo(CameraPermissionFragment.Navigation.Destination.id) {
+                            popUpTo(PermissionsFragment.Navigation.Destination.id) {
                                 inclusive = true
                             }
                         }

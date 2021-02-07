@@ -9,16 +9,16 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 
-class CameraPermissionFragment : Fragment() {
+class PermissionsFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (hasCameraPermission()) {
+        if (hasPermissions()) {
             navigateToCamera()
         } else {
             val permissionRequest =
-                registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-                    if (isGranted) {
+                registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+                    if (permissions.all { it.value }) {
                         navigateToCamera()
                     } else {
                         Toast.makeText(
@@ -30,19 +30,21 @@ class CameraPermissionFragment : Fragment() {
                     }
                 }
 
-            permissionRequest.launch(Manifest.permission.CAMERA)
+            permissionRequest.launch(REQUESTED_PERMISSIONS)
         }
     }
 
     private fun navigateToCamera() {
-        findNavController().navigate(Navigation.Action.permissionGranted)
+        findNavController().navigate(Navigation.Action.granted)
     }
 
-    private fun hasCameraPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            requireContext(),
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun hasPermissions(): Boolean {
+        return REQUESTED_PERMISSIONS.all { permission ->
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                permission
+            ) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     object Navigation {
@@ -50,7 +52,14 @@ class CameraPermissionFragment : Fragment() {
             val id = IdGenerator.next()
         }
         object Action {
-            val permissionGranted = IdGenerator.next()
+            val granted = IdGenerator.next()
         }
+    }
+
+    companion object {
+        private val REQUESTED_PERMISSIONS = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
     }
 }

@@ -1,8 +1,10 @@
 package nick.camerafun
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.VideoCapture
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.*
 import kotlinx.coroutines.Dispatchers
@@ -55,15 +57,18 @@ class CameraViewModel(
     }
 
     suspend fun takePicture(imageCapture: ImageCapture): ImageCapture.OutputFileResults {
+        val file = createFile("jpg")
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
+        return imageCapture.takePicture(outputOptions)
+    }
+
+    private fun createFile(extension: String): File {
         val date = SimpleDateFormat(FILENAME_FORMAT, Locale.CANADA)
             .format(System.currentTimeMillis())
-        val photoFile = File(
+        return File(
             outputDirectory,
-            "$date.jpg"
+            "$date.$extension"
         )
-
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-        return imageCapture.takePicture(outputOptions)
     }
 
     private suspend fun ImageCapture.takePicture(
@@ -83,6 +88,30 @@ class CameraViewModel(
         takePicture(outputFileOptions, mainExecutor, callback)
     }
 
+    suspend fun startRecording(videoCapture: VideoCapture): VideoCapture.OutputFileResults {
+        val file = createFile("mp4")
+        val outputOptions = VideoCapture.OutputFileOptions.Builder(file).build()
+        return videoCapture.startRecording(outputOptions)
+    }
+
+    @SuppressLint("RestrictedApi")
+    private suspend fun VideoCapture.startRecording(
+        outputFileOptions: VideoCapture.OutputFileOptions
+    ): VideoCapture.OutputFileResults = suspendCoroutine { continuation ->
+        val callback = object : VideoCapture.OnVideoSavedCallback {
+            override fun onVideoSaved(outputFileResults: VideoCapture.OutputFileResults) {
+                continuation.resume(outputFileResults)
+            }
+
+            override fun onError(videoCaptureError: Int, message: String, cause: Throwable?) {
+                val exception = VideoCaptureException(videoCaptureError, message, cause)
+                continuation.resumeWithException(exception)
+            }
+        }
+
+        startRecording(outputFileOptions, mainExecutor, callback)
+    }
+
     companion object {
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
     }
@@ -94,3 +123,9 @@ class CameraViewModel(
         }
     }
 }
+
+class VideoCaptureException(
+    val error: Int,
+    message: String,
+    cause: Throwable?
+) : Exception(message, cause)

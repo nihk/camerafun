@@ -50,20 +50,41 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        app:layout_constraintBottom_toTopOf="@id/camera_capture_button"
+        app:layout_constraintBottom_toTopOf="@id/button_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <Button
-        android:id="@+id/camera_capture_button"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+    <LinearLayout
+        android:id="@+id/button_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginBottom="50dp"
-        android:elevation="2dp"
-        android:text="Take Photo"
+        android:gravity="center"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:ignore="HardcodedText" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/image_capture"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:elevation="2dp"
+            android:text="Take Photo"
+            tools:ignore="HardcodedText" />
+
+        <Space
+            android:layout_width="16dp"
+            android:layout_height="0dp" />
+
+        <Button
+            android:id="@+id/video_capture"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:elevation="2dp"
+            android:text="@string/start_recording"
+            tools:ignore="HardcodedText" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

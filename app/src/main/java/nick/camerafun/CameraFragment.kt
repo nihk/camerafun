@@ -26,6 +26,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     lateinit var binding: CameraFragmentBinding
     private lateinit var viewModel: CameraViewModel
     var imageCapture: ImageCapture? = null
+    var videoCapture: VideoCapture? = null
     var camera: Camera? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -38,8 +39,15 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             bindToCamera(cameraProvider)
             enableGestures()
             enableZoomSlider()
-            binding.cameraCaptureButton.setOnClickListener {
+            binding.imageCapture.setOnClickListener {
                 takePicture()
+            }
+            binding.videoCapture.setOnClickListener {
+                if (binding.videoCapture.text == getString(R.string.start_recording)) {
+                    recordVideo()
+                } else {
+                    stopRecording()
+                }
             }
         }
 
@@ -66,6 +74,8 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             })
         }
 
+        videoCapture = VideoCapture.Builder().build()
+
         try {
             cameraProvider.unbindAll()
             // N.B. the max allowed UseCases that can be passed into this method is 3
@@ -74,7 +84,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 CameraSelector.DEFAULT_BACK_CAMERA,
                 preview,
                 imageCapture,
-                qrCodeAnalysis
+                videoCapture
             )
         } catch (throwable: Throwable) {
             Log.d(TAG, "Use case binding failed", throwable)
@@ -156,6 +166,22 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             val results = viewModel.takePicture(imageCapture)
             Log.d(TAG, "Saved pic to: ${results.savedUri}")
         }
+    }
+
+    private fun recordVideo() {
+        val videoCapture = videoCapture ?: return
+        binding.videoCapture.text = getString(R.string.stop_recording)
+        viewLifecycleOwner.lifecycleScope.launch {
+            val results = viewModel.startRecording(videoCapture)
+            binding.videoCapture.text = getString(R.string.start_recording)
+            Log.d(TAG, results.savedUri.toString())
+        }
+    }
+
+    @SuppressLint("RestrictedApi")
+    private fun stopRecording() {
+        val videoCapture = videoCapture ?: return
+        videoCapture.stopRecording()
     }
 
     companion object {
