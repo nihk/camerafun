@@ -33,6 +33,8 @@ class MainActivity : AppCompatActivity(R.layout.main_activity) {
                     }
                 }
                 fragment<CameraFragment>(CameraFragment.Navigation.Destination.id)
+                fragment<PictureFragment>(PictureFragment.Navigation.Destination.id)
+                fragment<VideoFragment>(VideoFragment.Navigation.Destination.id)
             }
         }
     }

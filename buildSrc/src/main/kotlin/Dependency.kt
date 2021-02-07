@@ -82,6 +82,15 @@ object Dependency {
         const val intents = "androidx.test.espresso:espresso-intents:${Version.espresso}"
     }
 
+    object ExoPlayer {
+        const val runtime = "com.google.android.exoplayer:exoplayer:${Version.exoPlayer}"
+        const val core = "com.google.android.exoplayer:exoplayer-core:${Version.exoPlayer}"
+        const val dash = "com.google.android.exoplayer:exoplayer-dash:${Version.exoPlayer}"
+        const val hls = "com.google.android.exoplayer:exoplayer-hls:${Version.exoPlayer}"
+        const val smoothstreaming = "com.google.android.exoplayer:exoplayer-smoothstreaming:${Version.exoPlayer}"
+        const val ui = "com.google.android.exoplayer:exoplayer-ui:${Version.exoPlayer}"
+    }
+
     object Fragment {
         const val runtime = "androidx.fragment:fragment-ktx:${Version.fragment}"
         const val testing = "androidx.fragment:fragment-testing:${Version.fragment}"

@@ -19,6 +19,7 @@ object Version {
     const val coroutines = "1.4.2"
     const val dagger = "2.31.2"
     const val espresso = "3.3.0-rc01"
+    const val exoPlayer = "2.12.3"
     const val fragment = "1.3.0-rc02"
     const val hamcrest = "1.3"
     const val hilt = "$dagger-alpha"

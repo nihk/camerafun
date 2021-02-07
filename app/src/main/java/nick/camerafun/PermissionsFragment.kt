@@ -16,19 +16,15 @@ class PermissionsFragment : Fragment() {
         if (hasPermissions()) {
             navigateToCamera()
         } else {
-            val permissionRequest =
-                registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-                    if (permissions.all { it.value }) {
-                        navigateToCamera()
-                    } else {
-                        Toast.makeText(
-                            requireContext(),
-                            "Permissions were not granted :(",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        requireActivity().finish()
-                    }
+            val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+                if (permissions.all { it.value }) {
+                    navigateToCamera()
+                } else {
+                    Toast.makeText(requireContext(), "Permissions were not granted :(", Toast.LENGTH_LONG)
+                        .show()
+                    requireActivity().finish()
                 }
+            }
 
             permissionRequest.launch(REQUESTED_PERMISSIONS)
         }
@@ -40,10 +36,7 @@ class PermissionsFragment : Fragment() {
 
     private fun hasPermissions(): Boolean {
         return REQUESTED_PERMISSIONS.all { permission ->
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                permission
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED
         }
     }
 

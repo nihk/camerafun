@@ -10,21 +10,22 @@ import android.widget.SeekBar
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.google.mlkit.vision.barcode.Barcode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import nick.camerafun.databinding.CameraFragmentBinding
 import kotlin.math.roundToInt
 
-@SuppressLint("LogNotTimber")
 class CameraFragment : Fragment(R.layout.camera_fragment) {
 
     lateinit var binding: CameraFragmentBinding
-    private lateinit var viewModel: CameraViewModel
+    lateinit var viewModel: CameraViewModel
     var imageCapture: ImageCapture? = null
     var videoCapture: VideoCapture? = null
     var camera: Camera? = null
@@ -35,7 +36,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
 
         val factory = CameraViewModel.Factory(requireContext().applicationContext)
         viewModel = ViewModelProvider(this, factory).get(CameraViewModel::class.java)
-        viewModel.cameraProvider().observe(viewLifecycleOwner) { cameraProvider ->
+        viewModel.cameraProvider().onEach { cameraProvider ->
             bindToCamera(cameraProvider)
             enableGestures()
             enableZoomSlider()
@@ -49,7 +50,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                     stopRecording()
                 }
             }
-        }
+        }.launchIn(viewLifecycleOwner.lifecycleScope)
 
         binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
             Log.d(TAG, "StreamState == $state")
@@ -59,6 +60,16 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 View.GONE
             }
         }
+
+        viewModel.directions().onEach { directions ->
+            binding.viewContent.apply {
+                visibility = View.VISIBLE
+                setOnClickListener {
+                    val args = bundleOf(KEY_URI to directions.uri)
+                    findNavController().navigate(directions.destination, args)
+                }
+            }
+        }.launchIn(viewLifecycleOwner.lifecycleScope)
     }
 
     private fun bindToCamera(cameraProvider: ProcessCameraProvider) {
@@ -150,10 +161,9 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     private fun enableZoomSlider() {
         binding.zoomSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) {
-                    return
+                if (fromUser) {
+                    camera?.cameraControl?.setLinearZoom(progress / 100f)
                 }
-                camera?.cameraControl?.setLinearZoom(progress / 100f)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
@@ -163,8 +173,10 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     private fun takePicture() {
         val imageCapture = imageCapture ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            val results = viewModel.takePicture(imageCapture)
-            Log.d(TAG, "Saved pic to: ${results.savedUri}")
+            val savedUri = viewModel.takePicture(imageCapture)
+            Log.d(TAG, "Saved pic to: $savedUri")
+            val directions = Directions(PictureFragment.Navigation.Destination.id, savedUri)
+            viewModel.setDirections(directions)
         }
     }
 
@@ -173,8 +185,15 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
         binding.videoCapture.text = getString(R.string.stop_recording)
         viewLifecycleOwner.lifecycleScope.launch {
             val results = viewModel.startRecording(videoCapture)
-            binding.videoCapture.text = getString(R.string.start_recording)
             Log.d(TAG, results.savedUri.toString())
+            val directions = Directions(VideoFragment.Navigation.Destination.id, results.savedUri!!)
+            viewModel.setDirections(directions)
+
+            // There's currently no "cancel recording" mechanism in CameraX, so this Job will always
+            // finish and come here. Check whether the Job is active before accessing any leaked Context.
+            ensureActive()
+
+            binding.videoCapture.text = getString(R.string.start_recording)
         }
     }
 
