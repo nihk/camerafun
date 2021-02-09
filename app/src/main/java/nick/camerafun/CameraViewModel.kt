@@ -33,6 +33,7 @@ class CameraViewModel(
     fun directions(): SharedFlow<Directions> = directions
 
     // Adapted from: https://codelabs.developers.google.com/codelabs/camerax-getting-started#1
+    // TODO: Use MediaStore, instead.
     private val outputDirectory: File by lazy {
         val mediaDirectory = appContext.externalMediaDirs.firstOrNull()?.let {
             File(it, appContext.getString(R.string.app_name))
