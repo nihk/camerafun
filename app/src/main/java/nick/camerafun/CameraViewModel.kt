@@ -1,19 +1,23 @@
 package nick.camerafun
 
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.VideoCapture
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.lifecycle.*
+import androidx.core.content.contentValuesOf
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executor
@@ -21,6 +25,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
+@SuppressLint("StaticFieldLeak")
 class CameraViewModel(
     private val appContext: Context,
     private val mainExecutor: Executor
@@ -31,20 +36,6 @@ class CameraViewModel(
 
     private val directions = MutableSharedFlow<Directions>()
     fun directions(): SharedFlow<Directions> = directions
-
-    // Adapted from: https://codelabs.developers.google.com/codelabs/camerax-getting-started#1
-    // TODO: Use MediaStore, instead.
-    private val outputDirectory: File by lazy {
-        val mediaDirectory = appContext.externalMediaDirs.firstOrNull()?.let {
-            File(it, appContext.getString(R.string.app_name))
-                .apply { mkdirs() }
-        }
-        if (mediaDirectory?.exists() == true) {
-            mediaDirectory
-        } else {
-            appContext.filesDir
-        }
-    }
 
     init {
         viewModelScope.launch {
@@ -68,21 +59,24 @@ class CameraViewModel(
     }
 
     suspend fun takePicture(imageCapture: ImageCapture): Uri {
-        val file = createFile("jpg")
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
-        // The URI in these results will be null unless the the CameraX API created the File; use the File
-        // created earlier to reference the picture location, instead.
-        // See: https://github.com/android/camera-samples/issues/234#issuecomment-629536782
+        val outputOptions = ImageCapture.OutputFileOptions
+            .Builder(
+                appContext.contentResolver,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                createContentValues(mimeType = "image/jpeg")
+            )
+            .build()
+
         val results = imageCapture.takePicture(outputOptions)
-        return Uri.fromFile(file)
+        return requireNotNull(results.savedUri)
     }
 
-    private fun createFile(extension: String): File {
+    private fun createContentValues(mimeType: String): ContentValues {
         val date = SimpleDateFormat(FILENAME_FORMAT, Locale.CANADA)
             .format(System.currentTimeMillis())
-        return File(
-            outputDirectory,
-            "$date.$extension"
+        return contentValuesOf(
+            MediaStore.MediaColumns.DISPLAY_NAME to date,
+            MediaStore.MediaColumns.MIME_TYPE to mimeType
         )
     }
 
@@ -103,8 +97,12 @@ class CameraViewModel(
     }
 
     suspend fun startRecording(videoCapture: VideoCapture): VideoCapture.OutputFileResults {
-        val file = createFile("mp4")
-        val outputOptions = VideoCapture.OutputFileOptions.Builder(file).build()
+        val outputOptions = VideoCapture.OutputFileOptions
+            .Builder(
+                appContext.contentResolver,
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                createContentValues("video/mp4")
+            ).build()
         return videoCapture.startRecording(outputOptions)
     }
 
