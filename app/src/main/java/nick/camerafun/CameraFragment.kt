@@ -13,9 +13,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.mlkit.vision.barcode.Barcode
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import nick.camerafun.databinding.CameraFragmentBinding
 import kotlin.math.roundToInt
 
@@ -28,27 +31,54 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     var camera: Camera? = null
     lateinit var surface: Surface
     lateinit var surfaceControl: SurfaceControl
+    private val screenNo: Int get() = arguments?.getInt("screen_no", 1) ?: 1
 
-    private fun setUpSurfaces() {
+    private fun setUpSurfaces(viewFinder: SurfaceView) {
         surfaceControl = arguments?.getParcelable("surface_control")
             ?: SurfaceControl.Builder()
                 .setName("my_surface_control")
                 .setBufferSize(0, 0)
                 .build()
         surface = arguments?.getParcelable("surface")
-            ?:Surface(surfaceControl)
+            ?: Surface(surfaceControl)
+
+        if (arguments == null) {
+            arguments = Bundle()
+        }
+
+        requireArguments().putParcelable("surface_control", surfaceControl)
+        requireArguments().putParcelable("surface", surface)
+
+        viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                SurfaceControl.Transaction()
+                    .reparent(surfaceControl, viewFinder.surfaceControl)
+                    .setBufferSize(surfaceControl, viewFinder.width, viewFinder.height)
+                    .setVisibility(surfaceControl,  /* visible= */true)
+                    .apply()
+            }
+
+            override fun surfaceChanged(
+                holder: SurfaceHolder,
+                format: Int,
+                width: Int,
+                height: Int
+            ) {}
+
+            override fun surfaceDestroyed(holder: SurfaceHolder) {}
+        })
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding = CameraFragmentBinding.bind(view)
 
-        setUpSurfaces()
+        setUpSurfaces(binding.viewFinder)
 
         val factory = CameraViewModel.Factory(requireContext().applicationContext)
         viewModel = ViewModelProvider(this, factory).get(CameraViewModel::class.java)
         viewModel.cameraProvider().onEach { cameraProvider ->
-            bindToCamera(cameraProvider, binding.viewFinder)
+            bindToCamera(cameraProvider)
             enableGestures()
             enableZoomSlider()
             binding.imageCapture.setOnClickListener {
@@ -62,6 +92,9 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 }
             }
         }.launchIn(viewLifecycleOwner.lifecycleScope)
+
+        binding.qrCodeText.text = "On screen #$screenNo"
+        binding.qrCard.visibility = View.VISIBLE
 
 //        binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
 //            Log.d(TAG, "StreamState == $state")
@@ -85,22 +118,16 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
         binding.passCameraSurface.setOnClickListener {
             findNavController().navigate(
                 CameraFragment.Navigation.Destination.id,
-                bundleOf("surface" to surface, "surface_control" to surfaceControl)
+                bundleOf("surface" to surface, "surface_control" to surfaceControl, "screen_no" to (screenNo + 1))
             )
         }
     }
 
-    private fun bindToCamera(cameraProvider: ProcessCameraProvider, viewFinder: SurfaceView) {
+    private fun bindToCamera(cameraProvider: ProcessCameraProvider) {
         val preview = Preview.Builder().build().apply {
 //            setSurfaceProvider(binding.viewFinder.surfaceProvider)
             setSurfaceProvider { surfaceRequest ->
-                SurfaceControl.Transaction()
-                    .reparent(surfaceControl, viewFinder.surfaceControl)
-                    .setBufferSize(surfaceControl, viewFinder.width, viewFinder.height)
-                    .setVisibility(surfaceControl,  /* visible= */true)
-                    .apply()
-
-                surfaceRequest.provideSurface(surface, Dispatchers.Main.asExecutor()) { result ->
+                surfaceRequest.provideSurface(surface, Dispatchers.IO.asExecutor()) { result ->
                     val i = result
                 }
                 Log.d(TAG, "Surface requested!")
