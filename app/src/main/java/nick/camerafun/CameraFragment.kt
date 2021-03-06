@@ -3,13 +3,10 @@ package nick.camerafun
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
-import android.view.MotionEvent
-import android.view.ScaleGestureDetector
-import android.view.View
+import android.view.*
 import android.widget.SeekBar
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -29,15 +26,29 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
     var imageCapture: ImageCapture? = null
     var videoCapture: VideoCapture? = null
     var camera: Camera? = null
+    lateinit var surface: Surface
+    lateinit var surfaceControl: SurfaceControl
+
+    private fun setUpSurfaces() {
+        surfaceControl = arguments?.getParcelable("surface_control")
+            ?: SurfaceControl.Builder()
+                .setName("my_surface_control")
+                .setBufferSize(0, 0)
+                .build()
+        surface = arguments?.getParcelable("surface")
+            ?:Surface(surfaceControl)
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding = CameraFragmentBinding.bind(view)
 
+        setUpSurfaces()
+
         val factory = CameraViewModel.Factory(requireContext().applicationContext)
         viewModel = ViewModelProvider(this, factory).get(CameraViewModel::class.java)
         viewModel.cameraProvider().onEach { cameraProvider ->
-            bindToCamera(cameraProvider)
+            bindToCamera(cameraProvider, binding.viewFinder)
             enableGestures()
             enableZoomSlider()
             binding.imageCapture.setOnClickListener {
@@ -52,14 +63,14 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             }
         }.launchIn(viewLifecycleOwner.lifecycleScope)
 
-        binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
-            Log.d(TAG, "StreamState == $state")
-            binding.progressBar.visibility = if (state == PreviewView.StreamState.IDLE) {
-                View.VISIBLE
-            } else {
-                View.GONE
-            }
-        }
+//        binding.viewFinder.previewStreamState.observe(viewLifecycleOwner) { state: PreviewView.StreamState? ->
+//            Log.d(TAG, "StreamState == $state")
+//            binding.progressBar.visibility = if (state == PreviewView.StreamState.IDLE) {
+//                View.VISIBLE
+//            } else {
+//                View.GONE
+//            }
+//        }
 
         viewModel.directions().onEach { directions ->
             binding.viewContent.apply {
@@ -70,11 +81,30 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                 }
             }
         }.launchIn(viewLifecycleOwner.lifecycleScope)
+
+        binding.passCameraSurface.setOnClickListener {
+            findNavController().navigate(
+                CameraFragment.Navigation.Destination.id,
+                bundleOf("surface" to surface, "surface_control" to surfaceControl)
+            )
+        }
     }
 
-    private fun bindToCamera(cameraProvider: ProcessCameraProvider) {
+    private fun bindToCamera(cameraProvider: ProcessCameraProvider, viewFinder: SurfaceView) {
         val preview = Preview.Builder().build().apply {
-            setSurfaceProvider(binding.viewFinder.surfaceProvider)
+//            setSurfaceProvider(binding.viewFinder.surfaceProvider)
+            setSurfaceProvider { surfaceRequest ->
+                SurfaceControl.Transaction()
+                    .reparent(surfaceControl, viewFinder.surfaceControl)
+                    .setBufferSize(surfaceControl, viewFinder.width, viewFinder.height)
+                    .setVisibility(surfaceControl,  /* visible= */true)
+                    .apply()
+
+                surfaceRequest.provideSurface(surface, Dispatchers.Main.asExecutor()) { result ->
+                    val i = result
+                }
+                Log.d(TAG, "Surface requested!")
+            }
         }
 
         imageCapture = ImageCapture.Builder().build()
@@ -123,23 +153,24 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
             if (event.pointerCount > 1) {
                 pinchToZoom.onTouchEvent(event)
             } else {
-                tapToFocus(event)
+//                tapToFocus(event)
+                false
             }
         }
     }
 
-    private fun tapToFocus(event: MotionEvent): Boolean {
-        return when (event.action) {
-            MotionEvent.ACTION_DOWN -> true
-            MotionEvent.ACTION_UP -> {
-                val point = binding.viewFinder.meteringPointFactory.createPoint(event.x, event.y)
-                val action = FocusMeteringAction.Builder(point).build()
-                camera?.cameraControl?.startFocusAndMetering(action)
-                true
-            }
-            else -> false
-        }
-    }
+//    private fun tapToFocus(event: MotionEvent): Boolean {
+//        return when (event.action) {
+//            MotionEvent.ACTION_DOWN -> true
+//            MotionEvent.ACTION_UP -> {
+//                val point = binding.viewFinder.meteringPointFactory.createPoint(event.x, event.y)
+//                val action = FocusMeteringAction.Builder(point).build()
+//                camera?.cameraControl?.startFocusAndMetering(action)
+//                true
+//            }
+//            else -> false
+//        }
+//    }
 
     private fun getPinchToZoomDetector(): ScaleGestureDetector {
         val listener = object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -165,6 +196,7 @@ class CameraFragment : Fragment(R.layout.camera_fragment) {
                     camera?.cameraControl?.setLinearZoom(progress / 100f)
                 }
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })

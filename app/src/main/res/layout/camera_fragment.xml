@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.camera.view.PreviewView
+    <SurfaceView
         android:id="@+id/view_finder"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -33,6 +33,14 @@
             tools:text="https://www.example.com" />
 
     </androidx.cardview.widget.CardView>
+
+    <Button
+        android:id="@+id/pass_camera_surface"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="pass camera surface to new screen"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/qr_card" />
 
     <ProgressBar
         android:id="@+id/progress_bar"
