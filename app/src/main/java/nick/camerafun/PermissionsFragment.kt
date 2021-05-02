@@ -7,7 +7,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import kotlinx.coroutines.launch
 
 class PermissionsFragment : Fragment() {
 
@@ -16,7 +18,11 @@ class PermissionsFragment : Fragment() {
         if (hasPermissions()) {
             navigateToCamera()
         } else {
-            val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            lifecycleScope.launch {
+                val permissions = activityResult(
+                    REQUESTED_PERMISSIONS,
+                    ActivityResultContracts.RequestMultiplePermissions()
+                )
                 if (permissions.all { it.value }) {
                     navigateToCamera()
                 } else {
@@ -25,8 +31,6 @@ class PermissionsFragment : Fragment() {
                     requireActivity().finish()
                 }
             }
-
-            permissionRequest.launch(REQUESTED_PERMISSIONS)
         }
     }
 
